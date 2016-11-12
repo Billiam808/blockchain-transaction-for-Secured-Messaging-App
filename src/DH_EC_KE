@@ -11,23 +11,26 @@
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.SecureRandom;
+import java.security.Security;
 import java.security.Signature;
 import java.security.SignatureException;
 import java.security.spec.ECGenParameterSpec;
 import javax.crypto.Cipher;
 import org.bouncycastle.jce.spec.IEKeySpec;
 import org.bouncycastle.jce.spec.IESParameterSpec;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+
 
 public class DH_EC_KE {
-    private SecureRandom random;
+    private SecureRandom random;      // SecureRandom is a class that provides a cryptographic strong RNG (random number Generator)
     private int keySize;
-    private KeyPair akey;
-    private KeyPair bkey;
+    private KeyPair akey;             // simple key holder for a key pair
+    private KeyPair bkey;             // simple key holder for a key pair
     
   public DH_EC_KE () throws Exception{  
     this.random = new SecureRandom();
   }
-
+  
   public void establishKeys(String keysize) throws Exception {
   
       ECGenParameterSpec     ecGenSpec = new ECGenParameterSpec(keysize);
@@ -43,6 +46,8 @@ public class DH_EC_KE {
   
   public byte[] encrypt(byte[] plainText) throws Exception {
 
+      // Tells the Java program to integrate Bouncy Castle
+      Security.addProvider(new BouncyCastleProvider());
       // get ECIES cipher objects
       Cipher acipher = Cipher.getInstance("ECIES");
   
@@ -52,7 +57,8 @@ public class DH_EC_KE {
         IESParameterSpec param = new IESParameterSpec(d, e, 256);
         
         // encrypt the plaintext using the public key
-      acipher.init(Cipher.ENCRYPT_MODE, new IEKeySpec(akey.getPrivate(), bkey.getPublic()), param);
+        IEKeySpec kSpec = new IEKeySpec(akey.getPrivate(), bkey.getPublic());
+      acipher.init(Cipher.ENCRYPT_MODE, kSpec, param);
       return acipher.doFinal(plainText);
   }
    
