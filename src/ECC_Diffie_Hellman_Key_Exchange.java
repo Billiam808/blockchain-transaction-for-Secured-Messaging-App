@@ -27,7 +27,7 @@ public class DH_EC_KE {
   public DH_EC_KE () throws Exception{  
     this.random = new SecureRandom();
   }
-  
+
   public void establishKeys(String keysize) throws Exception {
   
       ECGenParameterSpec     ecGenSpec = new ECGenParameterSpec(keysize);
