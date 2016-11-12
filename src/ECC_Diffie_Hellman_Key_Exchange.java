@@ -1,58 +1,101 @@
-import java.math.BigInteger;
-import java.security.KeyFactory;
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+
+/**
+ *
+ * @author billiam
+ */
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.SecureRandom;
+import java.security.Signature;
+import java.security.SignatureException;
+import java.security.spec.ECGenParameterSpec;
+import javax.crypto.Cipher;
+import org.bouncycastle.jce.spec.IEKeySpec;
+import org.bouncycastle.jce.spec.IESParameterSpec;
 
-import javax.crypto.spec.DHParameterSpec;
-import javax.crypto.spec.DHPublicKeySpec;
-
-public class ECC_DH_KE {
-  public final static int pValue = 47;
-
-  public final static int gValue = 71;
-
-  public final static int XaValue = 9;
-
-  public final static int XbValue = 14;
-
-  public static void main(String[] args) throws Exception {
-    BigInteger p = new BigInteger(Integer.toString(pValue));
-    BigInteger g = new BigInteger(Integer.toString(gValue));
-    BigInteger Xa = new BigInteger(Integer.toString(XaValue));
-    BigInteger Xb = new BigInteger(Integer.toString(XbValue));
-
-    createKey();
-
-    int bitLength = 512; // 512 bits
-    SecureRandom rnd = new SecureRandom();
-    p = BigInteger.probablePrime(bitLength, rnd);
-    g = BigInteger.probablePrime(bitLength, rnd);
+public class DH_EC_KE {
+    private SecureRandom random;
+    private int keySize;
+    private KeyPair akey;
+    private KeyPair bkey;
     
-    createSpecificKey(p, g);
+  public DH_EC_KE () throws Exception{  
+    this.random = new SecureRandom();
+  }
+  
+  public void establishKeys(String keysize) throws Exception {
+  
+      ECGenParameterSpec     ecGenSpec = new ECGenParameterSpec(keysize);
+      KeyPairGenerator keyGen = KeyPairGenerator.getInstance("EC");
+
+      keyGen.initialize(ecGenSpec, random);
+
+      this.akey = keyGen.generateKeyPair();
+      this.bkey = keyGen.generateKeyPair();
+    this.keySize = Integer.valueOf( (ecGenSpec.getName().substring(4, 7)) ).intValue();
+  }
+  
+  
+  public byte[] encrypt(byte[] plainText) throws Exception {
+
+      // get ECIES cipher objects
+      Cipher acipher = Cipher.getInstance("ECIES");
+  
+      //  generate derivation and encoding vectors
+        byte[]  d = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 };
+        byte[]  e = new byte[] { 8, 7, 6, 5, 4, 3, 2, 1 };
+        IESParameterSpec param = new IESParameterSpec(d, e, 256);
+        
+        // encrypt the plaintext using the public key
+      acipher.init(Cipher.ENCRYPT_MODE, new IEKeySpec(akey.getPrivate(), bkey.getPublic()), param);
+      return acipher.doFinal(plainText);
+  }
+   
+  public byte[] decrypt(byte[] cipherText) throws Exception {
+      
+      // get ECIES cipher objects
+      Cipher bcipher = Cipher.getInstance("ECIES");
+  
+      //  generate derivation and encoding vectors
+        byte[]  d = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 };
+        byte[]  e = new byte[] { 8, 7, 6, 5, 4, 3, 2, 1 };
+        IESParameterSpec param = new IESParameterSpec(d, e, 256);
+
+        // decrypt the text using the private key
+      bcipher.init(Cipher.DECRYPT_MODE, new IEKeySpec(bkey.getPrivate(), akey.getPublic()), param);
+      return bcipher.doFinal(cipherText); 
+  }
+  
+  public byte[] sign(byte[] plainText) throws Exception {
+      
+    Signature sig = Signature.getInstance("SHA1WithECDSA");
+    sig.initSign(akey.getPrivate());
+    sig.update(plainText);
+    return sig.sign();
   }
 
-  public static void createKey() throws Exception {
-    KeyPairGenerator kpg = KeyPairGenerator.getInstance("DiffieHellman");
-
-    kpg.initialize(512);
-    KeyPair kp = kpg.generateKeyPair();
-    KeyFactory kfactory = KeyFactory.getInstance("DiffieHellman");
-
-    DHPublicKeySpec kspec = (DHPublicKeySpec) kfactory.getKeySpec(kp.getPublic(),
-        DHPublicKeySpec.class);
+  public boolean verify(byte[] plainText, byte[] signature) throws Exception {
+      
+    Signature sig = Signature.getInstance("SHA1WithECDSA");
+    sig.initVerify(akey.getPublic());
+    sig.update(plainText);
+    try {
+      if (sig.verify(signature)) {
+        return true;
+      } else return false;
+    } catch (SignatureException se) {
+      System.out.println( "Signature failed" );
+    }
+    return false;
   }
 
-  public static void createSpecificKey(BigInteger p, BigInteger g) throws Exception {
-    KeyPairGenerator kpg = KeyPairGenerator.getInstance("DiffieHellman");
-
-    DHParameterSpec param = new DHParameterSpec(p, g);
-    kpg.initialize(param);
-    KeyPair kp = kpg.generateKeyPair();
-
-    KeyFactory kfactory = KeyFactory.getInstance("DiffieHellman");
-
-    DHPublicKeySpec kspec = (DHPublicKeySpec) kfactory.getKeySpec(kp.getPublic(),
-        DHPublicKeySpec.class);
+  public int getKeySize() {
+    return keySize;
   }
+  
 }
